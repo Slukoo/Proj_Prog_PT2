@@ -12,11 +12,11 @@ type incdec = Ast.incdec
 type function_ = {
     fn_name: string;
   fn_params: var list;
-     fn_typ: typ list;
+    fn_typ: typ list;
 }
 
 and field = {
-         f_name: string;
+        f_name: string;
           f_typ: typ;
   mutable f_ofs: int; (* relatif à l'adresse de l'objet *)
 }

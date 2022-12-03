@@ -4,7 +4,7 @@
 # Workspace root: "/home/sluko/T\195\169l\195\169chargements/Projet
 # NanoGo-20221118/src"
 # Auto-detected concurrency: 8
-$ /usr/bin/ocamlc.opt -config > /tmp/dune_df1e29_output
+$ /usr/bin/ocamlc.opt -config > /tmp/dune_3a3967_output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -153,78 +153,11 @@ $ /usr/bin/ocamlc.opt -config > /tmp/dune_df1e29_output
 #      ; windows_unicode = false
 #      }
 #  }
-$ (cd _build/default && /home/sluko/.opam/default/bin/menhir -v parser.mly --base parser --infer-write-query parser__mock.ml.mock)
-$ (cd _build/default && /usr/bin/ocamllex -q -o lexer.ml lexer.mll)
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl main.ml) > _build/default/.main.eobjs/main.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl usage.ml) > _build/default/.main.eobjs/usage.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl compile.ml) > _build/default/.main.eobjs/compile.ml.d
 $ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl typing.ml) > _build/default/.main.eobjs/typing.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl lexer.ml) > _build/default/.main.eobjs/lexer.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl pretty.ml) > _build/default/.main.eobjs/pretty.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -intf x86_64.mli) > _build/default/.main.eobjs/x86_64.mli.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -intf ast.mli) > _build/default/.main.eobjs/ast.mli.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -intf tast.mli) > _build/default/.main.eobjs/tast.mli.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl parser__mock.ml.mock) > _build/default/.main.eobjs/parser__mock.ml.mock.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl lib.ml) > _build/default/.main.eobjs/lib.ml.d
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/ast.cmi -c -intf ast.mli)
-$ (cd _build/.sandbox/bf84dd35f7a34a35dbccf91b8634abfa/default && /usr/bin/ocamlc.opt -g -I .main.eobjs/byte -short-paths -i -impl parser__mock.ml.mock) > _build/.sandbox/bf84dd35f7a34a35dbccf91b8634abfa/default/parser__mock.mli.inferred
-$ (cd _build/default && /home/sluko/.opam/default/bin/menhir -v parser.mly --base parser --infer-read-reply parser__mock.mli.inferred)
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -intf parser.mli) > _build/default/.main.eobjs/parser.mli.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl x86_64.ml) > _build/default/.main.eobjs/x86_64.ml.d
-$ (cd _build/default && /usr/bin/ocamldep.opt -modules -impl parser.ml) > _build/default/.main.eobjs/parser.ml.d
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/usage.cmo -c -impl usage.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/parser.cmi -c -intf parser.mli)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/tast.cmi -c -intf tast.mli)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/lib.cmo -c -impl lib.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/x86_64.cmi -c -intf x86_64.mli)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/lexer.cmo -c -impl lexer.ml)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/usage.cmx -c -impl usage.ml)
 $ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/typing.cmo -c -impl typing.ml)
-> File "typing.ml", line 84, characters 12-37:
-> 84 |   | PEunop (Uneg | Unot | Ustar as op, e1) ->
->                  ^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/lib.cmx -c -impl lib.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/pretty.cmo -c -impl pretty.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/byte/x86_64.cmo -c -impl x86_64.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/compile.cmo -c -impl compile.ml)
-> File "compile.ml", line 89, characters 13-40:
-> 89 |   | TEbinop (Blt | Ble | Bgt | Bge as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-> File "compile.ml", line 91, characters 13-51:
-> 91 |   | TEbinop (Badd | Bsub | Bmul | Bdiv | Bmod as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-> File "compile.ml", line 93, characters 13-28:
-> 93 |   | TEbinop (Beq | Bne as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/lexer.cmx -c -impl lexer.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/main.cmo -c -impl main.ml)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/typing.cmx -c -impl typing.ml)
-> File "typing.ml", line 84, characters 12-37:
-> 84 |   | PEunop (Uneg | Unot | Ustar as op, e1) ->
->                  ^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/main.cmx -c -impl main.ml)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/compile.cmx -c -impl compile.ml)
-> File "compile.ml", line 89, characters 13-40:
-> 89 |   | TEbinop (Blt | Ble | Bgt | Bge as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-> File "compile.ml", line 91, characters 13-51:
-> 91 |   | TEbinop (Badd | Bsub | Bmul | Bdiv | Bmod as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-> File "compile.ml", line 93, characters 13-28:
-> 93 |   | TEbinop (Beq | Bne as op, e1, e2) ->
->                   ^^^^^^^^^^^^^^^
-> Warning 26 [unused-var]: unused variable op.
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/pretty.cmx -c -impl pretty.ml)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/x86_64.cmx -c -impl x86_64.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/byte/parser.cmo -c -impl parser.ml)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -o main.bc .main.eobjs/byte/lib.cmo .main.eobjs/byte/typing.cmo .main.eobjs/byte/x86_64.cmo .main.eobjs/byte/compile.cmo .main.eobjs/byte/parser.cmo .main.eobjs/byte/lexer.cmo .main.eobjs/byte/pretty.cmo .main.eobjs/byte/usage.cmo .main.eobjs/byte/main.cmo)
-$ (cd _build/default && /usr/bin/ocamlc.opt -g -o main.bc-for-jsoo -no-check-prims .main.eobjs/byte/lib.cmo .main.eobjs/byte/typing.cmo .main.eobjs/byte/x86_64.cmo .main.eobjs/byte/compile.cmo .main.eobjs/byte/parser.cmo .main.eobjs/byte/lexer.cmo .main.eobjs/byte/pretty.cmo .main.eobjs/byte/usage.cmo .main.eobjs/byte/main.cmo)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/parser.cmx -c -impl parser.ml)
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -o main.exe .main.eobjs/native/lib.cmx .main.eobjs/native/typing.cmx .main.eobjs/native/x86_64.cmx .main.eobjs/native/compile.cmx .main.eobjs/native/parser.cmx .main.eobjs/native/lexer.cmx .main.eobjs/native/pretty.cmx .main.eobjs/native/usage.cmx .main.eobjs/native/main.cmx)
+> File "typing.ml", line 333, characters 59-75:
+> 333 |             let listevars = nv_var_type il f.fn_typ loc in TEvars listevars, tvoid, false
+>                                                                  ^^^^^^^^^^^^^^^^
+> Error: The constructor TEvars expects 2 argument(s),
+>        but is applied here to 1 argument(s)
+[2]
