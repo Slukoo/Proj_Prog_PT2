@@ -5,3 +5,4 @@ typing_r1.ml
 ./_build
 ngoc
 *.s
+test*
