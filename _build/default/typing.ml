@@ -13,23 +13,8 @@ exception Anomaly of string
 
 let error loc e = raise (Error (loc, e))
 
-(* TODO environnement pour les types structure *)
 
-(* TODO environnement pour les fonctions *)
 
-let rec type_type = function
-  | PTident { id = "int" } -> Tint
-  | PTident { id = "bool" } -> Tbool
-  | PTident { id = "string" } -> Tstring
-  | PTptr ty -> Tptr (type_type ty)
-  | _ -> error dummy_loc ("unknown struct ") (* TODO type structure *)
-
-let rec eq_type ty1 ty2 = match ty1, ty2 with
-  | Tint, Tint | Tbool, Tbool | Tstring, Tstring -> true
-  | Tstruct s1, Tstruct s2 -> s1 == s2
-  | Tptr ty1, Tptr ty2 -> eq_type ty1 ty2
-  | _ -> false
-    (* TODO autres types *)
 
 let fmt_used = ref false
 let fmt_imported = ref false
@@ -42,18 +27,77 @@ let new_var =
     incr id;
     { v_name = x; v_id = !id; v_loc = loc; v_typ = ty; v_used = used; v_addr = 0; v_depth = 0 }
 
+module StructEnv = struct
+  module M = Map.Make(String)
+  type t = structure M.t
+  let empty = M.empty
+  let all_structs = ref empty
+  let find name = M.find name !all_structs
+  let exists name = M.mem name !all_structs
 
+  let add s =
+    if exists s.s_name then
+      error dummy_loc ("duplicate structure name " ^ s.s_name)
+    else
+      all_structs := M.add s.s_name s !all_structs
+end
 
 let rec checktype = function
-  |PTident {id; loc}-> List.mem id ["bool"; "int"; "string"] (*|| Hashtbl.mem tablestructs id*)
-  |PTptr t -> checktype t
+  |PTident {id; loc}-> List.mem id ["bool"; "int"; "string"] || StructEnv.exists id
+  |PTptr t -> checktype t        
+
+
+let rec type_type = function
+  | PTident { id = "int" } -> Tint
+  | PTident { id = "bool" } -> Tbool
+  | PTident { id = "string" } -> Tstring
+  | PTptr ty -> Tptr (type_type ty)
+  | PTident { id = id; loc = loc } -> 
+      try 
+        let s = StructEnv.find id in
+        Tstruct s
+      with
+        | Not_found -> error loc "unknown type/ structure "
+
+
+
+let rec eq_type ty1 ty2 = match ty1, ty2 with
+  | Tint, Tint | Tbool, Tbool | Tstring, Tstring -> true
+  | Tstruct s1, Tstruct s2 -> s1 == s2
+  | Tptr ty1, Tptr ty2 -> eq_type ty1 ty2
+  | _ -> false
+    (* TODO autres types *)
+
+let rec sizeof = function
+  | Tint | Tbool | Tstring | Tptr _ -> 8
+  | Tmany l -> List.fold_left (fun s t -> s + sizeof t) 0 l
+  | Tstruct s -> s.s_size * 8
+  | Twild -> 0
+
+
+let addfields table ps =
+  let rec aux size pfields =
+    match pfields with
+    | [] -> size
+    | (id, ty) :: l -> 
+      if Hashtbl.mem table id.id then 
+        error id.loc ("duplicate field name in structure" ^ ps.ps_name.id)
+      else (
+        let field = { f_name = id.id; f_typ = (type_type ty); f_ofs = (size/8);} in
+        Hashtbl.add table id.id field;
+        aux (size + sizeof field.f_typ) l
+      )
+  in aux 0 ps.ps_fields
+  
+
+
 
 module FuncEnv = struct
   module M = Map.Make(String)
   type t = pfunc M.t
   let empty = M.empty
   let all_funcs = ref empty
-  let find f = M.find f !all_funcs
+  let find name = M.find name !all_funcs
   let exists f = M.mem f.pf_name.id !all_funcs
 
   let add f = 
@@ -62,37 +106,37 @@ module FuncEnv = struct
     else
       all_funcs := M.add f.pf_name.id f !all_funcs
 
-      let varduplicates f = 
-        let table = Hashtbl.create 15 in
-        let rec test_var = function
-          |[] -> ()
-          |p::t ->
-            let pid = fst p in
-            if Hashtbl.mem table pid.id then
-              error pid.loc (" duplicate variable names in function " ^ f.pf_name.id)
-            else (
-              Hashtbl.add table pid.id ();
-              test_var t
-            )
-        in test_var f.pf_params
-      let paramtypes f =
-        let rec aux = function
-        | [] -> ()
-        | p::l -> 
-          let id = fst p in
-          if checktype (snd p)
-          then aux l
-          else error id.loc ("unknown type for variable "^id.id^" in function "^f.pf_name.id)
-        in aux f.pf_params
-    
-      let outtype f =
-        let rec aux = function
-        |[] -> ()
-        | t::l ->
-          if checktype t
-          then aux l
-          else error f.pf_name.loc ("unknown return type for function "^f.pf_name.id)
-        in aux f.pf_typ
+  let varduplicates f = 
+    let table = Hashtbl.create (List.length f.pf_params) in
+    let rec test_var = function
+      |[] -> ()
+      |p::t ->
+        let pid = fst p in
+        if Hashtbl.mem table pid.id then
+          error pid.loc (" duplicate variable names in function " ^ f.pf_name.id)
+        else (
+          Hashtbl.add table pid.id ();
+          test_var t
+        )
+    in test_var f.pf_params
+  let paramtypes f =
+    let rec aux = function
+    | [] -> ()
+    | p::l -> 
+      let id = fst p in
+      if checktype (snd p)
+      then aux l
+      else error id.loc ("unknown type for variable "^id.id^" in function "^f.pf_name.id)
+    in aux f.pf_params
+
+  let outtype f =
+    let rec aux = function
+    |[] -> ()
+    | t::l ->
+      if checktype t
+      then aux l
+      else error f.pf_name.loc ("unknown return type for function "^f.pf_name.id)
+    in aux f.pf_typ
 
 end
 
@@ -101,19 +145,21 @@ module Env = struct
   type t = var M.t
   let empty = M.empty
   let find = M.find
-  let add env v = M.add v.v_name v env
-  
   let all_vars = ref []
+  let add env v = all_vars := v :: !all_vars; M.add v.v_name v env
+  
+  
   let check_unused () =
     let check v =
-      if v.v_name <> "_" && not v.v_used then (
-        error v.v_loc ("unused variable "^v.v_name)) in
+      if v.v_name <> "_" && not v.v_used then
+        error v.v_loc ("unused variable : "^v.v_name) in
     List.iter check !all_vars
+
+
 
 
   let var x loc ?used ty env =
     let v = new_var x loc ?used ty in
-    all_vars := v :: !all_vars;
     add env v, v
 
   (* TODO type () et vecteur de types *)
@@ -145,7 +191,7 @@ let list_to_typevect tl =
     | Tint | Tstring | Tbool | Twild -> true
     | Tptr t -> valid_type t
     | Tmany _ -> false
-    | Tstruct s -> assert false
+    | Tstruct s -> StructEnv.exists s.s_name
 
 
 
@@ -290,12 +336,24 @@ and expr_desc env loc = function
 
   | PEident {id=id} ->
     (try let v = Env.find id env in 
-      v.v_used <- true ; 
+      v.v_used <- true;
       TEident v, v.v_typ, false
     with Not_found -> error loc ("unbound variable " ^ id))
 
   | PEdot (e, id) ->
-     (* TODO *) assert false
+    if islvalue e then
+      let ex = fst (expr env e) in
+      match ex.expr_typ with
+      | Tstruct s | Tptr (Tstruct s)->
+        (try
+          let field = Hashtbl.find s.s_fields id.id in
+          TEdot(ex,field), field.f_typ, false
+        with
+          |Not_found -> error loc ("unknown field " ^ id.id ^ " in structure " ^ s.s_name)
+        )
+      | _ -> error loc "structure or structure pointer expected for dot operator"
+      else
+        error loc "l-value expected for dot operator "
 
   | PEassign (lvl, el) ->
       let lvl' = List.map (fun lv -> if islvalue lv then fst(expr env lv) else error loc "only l-values are allowed for affectation ") lvl
@@ -320,6 +378,8 @@ and expr_desc env loc = function
         TEreturn(rl), tvoid, true
       else
         error loc "wrong return type "
+
+
 
   | PEblock el ->
       let rec declaration desc env' =
@@ -356,7 +416,7 @@ and expr_desc env loc = function
         match exl with
         | [ex] ->
             if (valid_type ex.expr_typ) then
-            let v = snd( Env.var i.id i.loc ex.expr_typ env) in
+            let v = new_var i.id i.loc ex.expr_typ in
             TEvars([v],[ex]), tvoid, false 
           else
             error loc "expression type is not valid "
@@ -364,7 +424,7 @@ and expr_desc env loc = function
 
       else if List.length il = List.length el then
         if List.for_all (fun ex -> valid_type ex.expr_typ) exl then
-          let vl = List.map2 (fun ex i -> snd( Env.var i.id i.loc ex.expr_typ env)) exl il in
+          let vl = List.map2 (fun ex i -> new_var i.id i.loc ex.expr_typ ) exl il in
           TEvars(vl,exl), tvoid, false
         else
           error loc "expression type is not valid "
@@ -372,7 +432,7 @@ and expr_desc env loc = function
         let ex = List.hd exl in
         match ex.expr_typ with
           | Tmany tl when List.length tl = List.length il -> 
-            let vl = List.map2 (fun t i -> snd(Env.var i.id i.loc t env)) tl il in
+            let vl = List.map2 (fun t i -> new_var i.id i.loc t ) tl il in
             TEvars(vl,exl), tvoid, false
           | _ -> error loc "wrong number/type of expressions "
       else
@@ -385,7 +445,7 @@ and expr_desc env loc = function
     let exl = List.map(fun e -> fst(expr env e)) el in
     if il = [] then error loc "empty declaration " else
     if el = [] then
-      let vl = List.map (fun i -> snd(Env.var i.id i.loc t env)) il in
+      let vl = List.map (fun i -> new_var i.id i.loc t) il in
       TEvars(vl,[]), tvoid, false
     else
       if List.length il = 1 then
@@ -393,7 +453,7 @@ and expr_desc env loc = function
         match exl with
         | [ex] ->
             if (eq_type ex.expr_typ t) then
-            let v = snd( Env.var i.id i.loc t env) in
+            let v = new_var i.id i.loc t in
             TEvars([v],[ex]), tvoid, false 
           else
             error loc "expression type is not valid "
@@ -402,7 +462,7 @@ and expr_desc env loc = function
       else 
         if List.length il = List.length el then
           if List.for_all (fun ex -> eq_type ex.expr_typ t) exl then
-            let vl = List.map (fun i -> snd( Env.var i.id i.loc t env)) il in
+            let vl = List.map (fun i -> new_var i.id i.loc t) il in
             TEvars(vl,exl), tvoid, false
           else
             error loc "expression type is not valid "
@@ -410,7 +470,7 @@ and expr_desc env loc = function
           let ex = List.hd exl in
           match ex.expr_typ with
             | Tmany tl when ((List.length tl = List.length il) && (List.for_all (fun t' -> eq_type t' t) tl)) -> 
-              let vl = List.map (fun i -> snd(Env.var i.id i.loc t env)) il in
+              let vl = List.map (fun i -> new_var i.id i.loc t ) il in
               TEvars(vl,exl), tvoid, false
             | _ -> error loc "wrong number/type of expressions "
         else
@@ -420,14 +480,11 @@ let found_main = ref false
 
 (* 1. declare structures *)
 let phase1 = function
-  | PDstruct { ps_name = { id = id; loc = loc }} -> () (*TODO*)
+  | PDstruct { ps_name = { id = id; loc = loc }} ->
+    let s = { s_name = id; s_fields = Hashtbl.create 10; s_size = 0;} in
+      StructEnv.add s
   | PDfunction _ -> ()
 
-
-let rec sizeof = function
-  | Tint | Tbool | Tstring | Tptr _ -> 8
-  | Tmany l -> List.fold_left (fun s t -> s + sizeof t) 0 l
-  | _ -> (* TODO *) assert false 
 
 (* 2. declare functions and type fields *)
 let phase2 = function
@@ -442,8 +499,12 @@ let phase2 = function
       FuncEnv.varduplicates f;
       FuncEnv.paramtypes f;
       FuncEnv.outtype f;
-  | PDstruct { ps_name = {id}; ps_fields = fl } ->
-     (* TODO *) () 
+  | PDstruct ({ ps_name = id; ps_fields = fl } as ps) ->
+      try
+        let s = StructEnv.find id.id in
+        s.s_size <- addfields s.s_fields ps
+      with
+        | Not_found -> error id.loc ("unknown structure " ^ id.id)
 
 (* 3. type check function bodies *)
 let decl = function
@@ -455,19 +516,19 @@ let decl = function
     let f = { fn_name = id; fn_params = !params; fn_typ = ty} in
     rettyp := ty;
     let e, rt = expr !env e in
-    if rt then
-      if ty = [] then
-        error loc "void function cannot return any value "
-      else
-        TDfunction (f, e)
+    (*Env.check_unused ();*)
+    if (not rt && ty <> []) then
+      error loc "non-void function must return a value "
     else
-      if ty = [] then
-        TDfunction (f, e)
-      else
-        error loc "non-void function must return a value "
-  | PDstruct {ps_name={id}} ->
-    (* TODO *) let s = { s_name = id; s_fields = Hashtbl.create 5; s_size = 0 } in
-     TDstruct s
+      TDfunction (f, e)
+  | PDstruct {ps_name= id } ->
+      try
+        let s = StructEnv.find id.id in
+        Hashtbl.iter (fun _ field -> if (eq_type (field.f_typ) (Tstruct s)) then 
+                                      error id.loc ("structure " ^ id.id ^ " calls itself as a field")) s.s_fields;
+        TDstruct s
+      with
+        |Not_found -> error id.loc ("unknown structure " ^ id.id)
 
 let file ~debug:b (imp, dl) =
   debug := b;
@@ -476,6 +537,6 @@ let file ~debug:b (imp, dl) =
   List.iter phase2 dl;
   if not !found_main then error dummy_loc "missing method main";
   let dl = List.map decl dl in
-  (*Env.check_unused (); (* TODO variables non utilisees *)*)
-  if imp && not !fmt_used then (*error dummy_loc "fmt imported but not used";*) ();
+  Env.check_unused (); (* TODO variables non utilisees *)
+  if imp && not !fmt_used then error dummy_loc "fmt imported but not used"; ();
   dl

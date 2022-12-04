@@ -4,7 +4,7 @@
 # Workspace root: "/home/sluko/T\195\169l\195\169chargements/Project
 # NanoGo-20221118/src"
 # Auto-detected concurrency: 8
-$ /usr/bin/ocamlc.opt -config > /tmp/dune_852cc5_output
+$ /usr/bin/ocamlc.opt -config > /tmp/dune_6a0339_output
 # Dune context:
 #  { name = "default"
 #  ; kind = "default"
@@ -169,6 +169,7 @@ $ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -n
 >                   ^^^^^^^^^^^^^^^
 > Warning 26 [unused-var]: unused variable op.
 $ (cd _build/default && /usr/bin/ocamlc.opt -g -bin-annot -I .main.eobjs/byte -no-alias-deps -opaque -o .main.eobjs/byte/main.cmo -c -impl main.ml)
+$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/main.cmx -c -impl main.ml)
 $ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/compile.cmx -c -impl compile.ml)
 > File "compile.ml", line 89, characters 13-40:
 > 89 |   | TEbinop (Blt | Ble | Bgt | Bge as op, e1, e2) ->
@@ -182,7 +183,6 @@ $ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eo
 > 93 |   | TEbinop (Beq | Bne as op, e1, e2) ->
 >                   ^^^^^^^^^^^^^^^
 > Warning 26 [unused-var]: unused variable op.
-$ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/main.cmx -c -impl main.ml)
 $ (cd _build/default && /usr/bin/ocamlopt.opt -g -I .main.eobjs/byte -I .main.eobjs/native -intf-suffix .ml -no-alias-deps -opaque -o .main.eobjs/native/typing.cmx -c -impl typing.ml)
 $ (cd _build/default && /usr/bin/ocamlc.opt -g -o main.bc .main.eobjs/byte/lib.cmo .main.eobjs/byte/typing.cmo .main.eobjs/byte/x86_64.cmo .main.eobjs/byte/compile.cmo .main.eobjs/byte/parser.cmo .main.eobjs/byte/lexer.cmo .main.eobjs/byte/pretty.cmo .main.eobjs/byte/usage.cmo .main.eobjs/byte/main.cmo)
 $ (cd _build/default && /usr/bin/ocamlc.opt -g -o main.bc-for-jsoo -no-check-prims .main.eobjs/byte/lib.cmo .main.eobjs/byte/typing.cmo .main.eobjs/byte/x86_64.cmo .main.eobjs/byte/compile.cmo .main.eobjs/byte/parser.cmo .main.eobjs/byte/lexer.cmo .main.eobjs/byte/pretty.cmo .main.eobjs/byte/usage.cmo .main.eobjs/byte/main.cmo)
