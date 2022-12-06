@@ -97,6 +97,16 @@ let rec sizeof = function
   | Twild -> 0
 
 
+let checkrecursive structure =
+  let name = structure.s_name in 
+  let rec aux fields =
+    Hashtbl.iter (fun _ field -> match field.f_typ with
+                                | Tstruct s -> if s.s_name = name then error dummy_loc ("recursive structure " ^ name)
+                                                else aux s.s_fields
+                                | _ -> (); ) fields
+  in aux structure.s_fields
+
+
 let addfields table ps =
   let rec aux size pfields =
     match pfields with
@@ -564,12 +574,7 @@ let decl = function
   | PDstruct {ps_name= id } ->
       try
         let s = StructEnv.find id.id in
-        Hashtbl.iter (fun _ field ->
-                  match field.f_typ with 
-                | Tstruct _ -> error id.loc ("structure " ^ id.id ^ " calls a structure as a field")
-                | _ -> ()
-                      )
-                s.s_fields;
+        checkrecursive s;
         TDstruct s
       with
         |Not_found -> error id.loc ("unknown structure " ^ id.id)
