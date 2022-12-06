@@ -4,7 +4,7 @@ open Lib
 open Ast
 open Tast
 
-(*j'espère qu'il fallait pas commenter parce que mon code est illisible, bon courage nonobstant*)
+
 
 
 let debug = ref false
@@ -128,7 +128,17 @@ module FuncEnv = struct
     else
       all_funcs := M.add f.pf_name.id f !all_funcs
 
-  let varduplicates f = 
+  let checkreturntype f =
+      let rec aux = function
+      |[] -> ()
+      | t::l ->
+        if checktype t
+        then aux l
+        else error f.pf_name.loc ("unknown return type for function "^f.pf_name.id)
+      in aux f.pf_typ
+
+
+  let checkvarduplicates f = 
     let table = Hashtbl.create (List.length f.pf_params) in
     let rec test_var = function
       |[] -> ()
@@ -141,7 +151,8 @@ module FuncEnv = struct
           test_var t
         )
     in test_var f.pf_params
-  let paramtypes f =
+
+  let checkparamtypes f =
     let rec aux = function
     | [] -> ()
     | p::l -> 
@@ -151,14 +162,7 @@ module FuncEnv = struct
       else error id.loc ("unknown type for variable "^id.id^" in function "^f.pf_name.id)
     in aux f.pf_params
 
-  let outtype f =
-    let rec aux = function
-    |[] -> ()
-    | t::l ->
-      if checktype t
-      then aux l
-      else error f.pf_name.loc ("unknown return type for function "^f.pf_name.id)
-    in aux f.pf_typ
+  
 
 end
 
@@ -220,7 +224,7 @@ let typevect_to_list tv =
 
 
 let rec expr env e =
-let e, ty, rt = expr_desc env e.pexpr_loc e.pexpr_desc in
+  let e, ty, rt = expr_desc env e.pexpr_loc e.pexpr_desc in
   { expr_desc = e; expr_typ = ty }, rt
 
 and expr_desc env loc = function
@@ -531,9 +535,9 @@ let phase2 = function
           error loc "main must have 0 arguments and be of type void "
       );
       FuncEnv.add f;
-      FuncEnv.varduplicates f;
-      FuncEnv.paramtypes f;
-      FuncEnv.outtype f;
+      FuncEnv.checkvarduplicates f;
+      FuncEnv.checkparamtypes f;
+      FuncEnv.checkreturntype f;
   | PDstruct ({ ps_name = id; ps_fields = fl } as ps) ->
       try
         let s = StructEnv.find id.id in
