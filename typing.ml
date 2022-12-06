@@ -4,6 +4,9 @@ open Lib
 open Ast
 open Tast
 
+(*j'espère qu'il fallait pas commenter parce que mon code est illisible, bon courage nonobstant*)
+
+
 let debug = ref false
 
 let dummy_loc = Lexing.dummy_pos, Lexing.dummy_pos
@@ -13,7 +16,14 @@ exception Anomaly of string
 
 let error loc e = raise (Error (loc, e))
 
-
+let rec print_type ty =
+  match ty with
+  | [] -> ()
+  | Tint :: l -> print_string " int * "; print_type l
+  | Tbool :: l -> print_string " bool * "; print_type l
+  | Tstring :: l -> print_string " string * "; print_type l
+  | Tptr t :: l -> print_type [t]; print_string " pointer * "; print_type l
+  | Tstruct s :: l-> print_string s.s_name; print_type l
 
 
 let fmt_used = ref false
@@ -26,6 +36,10 @@ let new_var =
   fun x loc ?(used=false) ty ->
     incr id;
     { v_name = x; v_id = !id; v_loc = loc; v_typ = ty; v_used = used; v_addr = 0; v_depth = 0 }
+
+let emptyvar =
+  { v_name = "_"; v_id = -1; v_loc = dummy_loc; v_typ = Twild; v_used = true; v_addr = 0; v_depth = 0 }
+
 
 module StructEnv = struct
   module M = Map.Make(String)
@@ -46,6 +60,13 @@ let rec checktype = function
   |PTident {id; loc}-> List.mem id ["bool"; "int"; "string"] || StructEnv.exists id
   |PTptr t -> checktype t        
 
+let rec valid_type ty =
+  match ty with
+    | Tint | Tstring | Tbool | Twild -> true
+    | Tptr t -> valid_type t
+    | Tmany _ -> false
+    | Tstruct s -> StructEnv.exists s.s_name
+
 
 let rec type_type = function
   | PTident { id = "int" } -> Tint
@@ -57,7 +78,7 @@ let rec type_type = function
         let s = StructEnv.find id in
         Tstruct s
       with
-        | Not_found -> error loc "unknown type/ structure "
+        | Not_found -> error loc ("unknown type " ^ id)
 
 
 
@@ -168,7 +189,7 @@ end
 
 let rec islvalue exp =
   match (exp.pexpr_desc) with
-  | PEident _ -> true
+  | PEident _-> true
   | PEdot (e,x) -> (islvalue e)
   | PEunop (Ustar, e) ->  (e.pexpr_desc <> PEnil)
   | _ -> false
@@ -184,15 +205,13 @@ let list_to_typevect tl =
   | [x] -> x
   | _ -> Tmany tl
 
+let typevect_to_list tv =
+  match tv with
+  | Tmany tl -> tl
+  | _ -> [tv]
 
 
 
-  let rec valid_type ty =
-    match ty with
-    | Tint | Tstring | Tbool | Twild -> true
-    | Tptr t -> valid_type t
-    | Tmany _ -> false
-    | Tstruct s -> StructEnv.exists s.s_name
 
 
 
@@ -226,13 +245,13 @@ and expr_desc env loc = function
           if (eq_type t1 Tint) then 
             TEbinop(op, fst (expr env e1), fst (expr env e2)), Tint, false
           else 
-            error loc ("expected int ")
+            error loc ("expected int for operation ")
 
         | Blt | Ble | Bgt | Bge ->
           if (eq_type t1 Tint) then
             TEbinop(op,fst (expr env e1), fst (expr env e2)), Tbool, false
           else
-            error loc ("expected int ")
+            error loc ("expected int for comparison ")
 
         | Beq | Bne ->
           if (e1.pexpr_desc = PEnil) then
@@ -244,7 +263,7 @@ and expr_desc env loc = function
           if (eq_type t1 Tbool) then
             TEbinop(op,fst (expr env e1) ,fst (expr env e2)), Tbool, false
           else
-            error loc "expected bool "
+            error loc "expected bool for operation "
     )
   
 
@@ -255,7 +274,7 @@ and expr_desc env loc = function
         if islvalue e1 then
           TEunop(Uamp, fst (expr env e1)), Tptr t, false
         else
-          error loc ("expected l-value ")
+          error loc ("expected l-value for amp (&) operator")
       |Ustar ->
         if e1.pexpr_desc = PEnil then
           error loc "cannot dereference null pointer "
@@ -264,20 +283,20 @@ and expr_desc env loc = function
             | Tptr t -> 
               TEunop(Ustar, fst (expr env e1)), t, false
             | _ ->
-              error loc ("expected pointer ")
+              error loc ("expected pointer for star (*) operator ")
         )
 
       | Uneg  ->
         if (eq_type t Tint) then
           TEunop(op, fst (expr env e1)), Tint, false
         else
-          error loc ("expected int ")
+          error loc ("expected int for negation ")
 
       | Unot ->
         if (eq_type t Tbool) then
           TEunop(op, fst(expr env e1)), Tbool, false
         else
-          error loc ("expected bool ")
+          error loc ("expected bool for logical negation ")
     )
 
 
@@ -290,25 +309,32 @@ and expr_desc env loc = function
   | PEcall ({id="new"}, [{pexpr_desc=PEident {id}}]) ->
     let ty = match id with
       | "int" -> Tint | "bool" -> Tbool | "string" -> Tstring
-      | _ -> (* TODO *) error loc ("no such type " ^ id) in
+      | sname -> 
+        (try
+          Tstruct (StructEnv.find sname) 
+        with  
+          | Not_found -> error loc ("unknown type " ^ id)
+        ) in
     TEnew ty, Tptr ty, false
   | PEcall ({id="new"}, _) ->
-    error loc "new expects a type"
+    error loc "new expects a structure name or a basic type (int/bool/string) "
 
 
   | PEcall (id, el) ->
     (
     try
       let pf = FuncEnv.find id.id in
-      let exl = List.map (fun e -> fst( expr env e)) el in
+      let f = {fn_name = pf.pf_name.id ; fn_typ = List.map type_type pf.pf_typ ;
+              fn_params = List.map (fun (id,typ) -> new_var id.id id.loc (type_type typ)) pf.pf_params} in
+      let typ = list_to_typevect f.fn_typ 
+      and exl = List.map (fun e -> fst( expr env e)) el in
       try
         if List.for_all2 (fun par ex -> eq_type ex.expr_typ (type_type (snd par))) (pf.pf_params) exl then
-          let f = {fn_name = pf.pf_name.id ; fn_typ = List.map type_type pf.pf_typ ;
-              fn_params = List.map (fun (id,typ) -> new_var id.id id.loc (type_type typ)) pf.pf_params} in
-          let typ = list_to_typevect f.fn_typ in
           TEcall(f,exl), typ , false
-        else
-          error loc ("wrong type of arguments ")
+        else match exl with
+          | [ex] when (List.equal eq_type (List.map (fun v -> v.v_typ) f.fn_params) (typevect_to_list ex.expr_typ)) -> 
+            TEcall (f,exl), typ, false
+          | _ -> error loc ("wrong type of arguments ")
       with
       |Invalid_argument _ -> error loc "wrong number of arguments "
     with
@@ -316,7 +342,7 @@ and expr_desc env loc = function
     )
 
 
-  | PEfor (e, b) ->
+  | PEfor (b, e) ->
     let e' = expr env e and b' = expr env b in
     if (eq_type (fst(b')).expr_typ Tbool) then
       TEfor(fst(e'), fst(b')), tvoid, (snd(e'))
@@ -339,11 +365,16 @@ and expr_desc env loc = function
     (try let v = Env.find id env in 
       v.v_used <- true;
       TEident v, v.v_typ, false
-    with Not_found -> error loc ("unbound variable " ^ id))
+    with Not_found -> 
+      if id = "_" then
+        TEident emptyvar, Twild, false
+      else
+        error loc ("unbound variable " ^ id))
 
   | PEdot (e, id) ->
     if islvalue e then
       let ex = fst (expr env e) in
+      if ex.expr_desc = TEident emptyvar then error loc "can't use dot operator on _ " else
       match ex.expr_typ with
       | Tstruct s | Tptr (Tstruct s)->
         (try
@@ -359,7 +390,8 @@ and expr_desc env loc = function
   | PEassign (lvl, el) ->
       let lvl' = List.map (fun lv -> if islvalue lv then fst(expr env lv) else error loc "only l-values are allowed for affectation ") lvl
       and exl = List.map (fun e -> fst (expr env e)) el in
-      if List.equal (fun lv ex -> eq_type lv.expr_typ ex.expr_typ) lvl' exl then
+      if List.exists (fun ex -> ex.expr_desc = TEident emptyvar) exl then error loc "can't use variable _ on the right-side of an affectation "
+      else if List.equal (fun lv ex -> eq_type lv.expr_typ ex.expr_typ) lvl' exl then
         TEassign (lvl', exl), tvoid, false
       else if (List.length exl   = 1 && lvl <> []) then
         let {expr_desc = desc; expr_typ = ty} = List.hd exl in
@@ -374,6 +406,7 @@ and expr_desc env loc = function
 
   | PEreturn el ->
     let rl = List.map (fun e -> fst(expr env e)) el in 
+     if List.exists (fun ex -> ex.expr_desc = TEident emptyvar) rl then error loc "can't use variable _ for a return value " else
     let tl = List.map (fun e -> e.expr_typ) rl in
       if tl = !rettyp then
         TEreturn(rl), tvoid, true
@@ -400,6 +433,7 @@ and expr_desc env loc = function
 
   | PEincdec (e, op) ->
     let ex = fst(expr env e) in
+    if ex.expr_desc = TEident emptyvar then error loc "can't increase/decrease variable _ " else
     if (eq_type ex.expr_typ Tint && islvalue e) then
       TEincdec(ex, op), tvoid, false
     else
@@ -416,7 +450,7 @@ and expr_desc env loc = function
       let i = List.hd il in
         match exl with
         | [ex] ->
-            if (valid_type ex.expr_typ) then
+            if (valid_type ex.expr_typ) && (not (ex.expr_desc = TEident emptyvar)) then
             let v = new_var i.id i.loc ex.expr_typ in
             TEvars([v],[ex]), tvoid, false 
           else
@@ -424,7 +458,7 @@ and expr_desc env loc = function
         | _ -> error loc "unbalanced delcaration: too many expressions"
 
       else if List.length il = List.length el then
-        if List.for_all (fun ex -> valid_type ex.expr_typ) exl then
+        if List.for_all (fun ex -> valid_type ex.expr_typ && (not (ex.expr_desc = TEident emptyvar))) exl then
           let vl = List.map2 (fun ex i -> new_var i.id i.loc ex.expr_typ ) exl il in
           TEvars(vl,exl), tvoid, false
         else
@@ -453,7 +487,7 @@ and expr_desc env loc = function
       let i = List.hd il in
         match exl with
         | [ex] ->
-            if (eq_type ex.expr_typ t) then
+            if (eq_type ex.expr_typ t) && (not (ex.expr_desc = TEident emptyvar)) then
             let v = new_var i.id i.loc t in
             TEvars([v],[ex]), tvoid, false 
           else
@@ -462,7 +496,7 @@ and expr_desc env loc = function
 
       else 
         if List.length il = List.length el then
-          if List.for_all (fun ex -> eq_type ex.expr_typ t) exl then
+          if List.for_all (fun ex -> eq_type ex.expr_typ t && (not (ex.expr_desc = TEident emptyvar))) exl then
             let vl = List.map (fun i -> new_var i.id i.loc t) il in
             TEvars(vl,exl), tvoid, false
           else
@@ -512,6 +546,7 @@ let decl = function
   | PDfunction { pf_name={id; loc}; pf_params = par; pf_body = e; pf_typ=tyl } ->
     let env = ref Env.empty 
     and params = ref [] in
+    if List.exists (fun p -> (fst p).id = "_") par then error loc "can't have \"_\" as a function argument " else
     List.iter (fun par -> let (e,v) = Env.var ((fst(par)).id) ((fst(par)).loc) (type_type (snd(par))) !env in env := e; params := v::!params) par;
     let ty = List.map type_type tyl in
     let f = { fn_name = id; fn_params = !params; fn_typ = ty} in
@@ -525,8 +560,12 @@ let decl = function
   | PDstruct {ps_name= id } ->
       try
         let s = StructEnv.find id.id in
-        Hashtbl.iter (fun _ field -> if (eq_type (field.f_typ) (Tstruct s)) then 
-                                      error id.loc ("structure " ^ id.id ^ " calls itself as a field")) s.s_fields;
+        Hashtbl.iter (fun _ field ->
+                  match field.f_typ with 
+                | Tstruct _ -> error id.loc ("structure " ^ id.id ^ " calls a structure as a field")
+                | _ -> ()
+                      )
+                s.s_fields;
         TDstruct s
       with
         |Not_found -> error id.loc ("unknown structure " ^ id.id)

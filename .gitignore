@@ -1,9 +1,6 @@
 *.go
 *.png
 *.dot
-typing_r1.ml
-./_build
-/_build
-ngoc
 *.s
-test*
+_build/
+ngoc
