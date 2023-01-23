@@ -4,5 +4,3 @@
 *.s
 _build/
 ngoc
-sb/
-tst/

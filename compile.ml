@@ -73,12 +73,6 @@ let compile_bool f=
   label l_true ++ movq (imm 1) (reg rdi) ++ label l_end
 
 
-let rec addspaces l =
-  match l with
-  | [] -> []
-  | [printcall] -> [printcall]
-  | printcall :: l' -> printcall :: (call "print_space") :: (addspaces l') 
-
 let rec vecttype_size typelist= 
   match typelist with
   | [] -> 0
@@ -181,7 +175,12 @@ let rec expr env e =
     expr env e1 ++
     movq (ind rdi) (reg rdi)
   | TEprint el ->
-    let prints = List.map (fun e ->
+    let rec addspaces l =
+      match l with
+      | [] -> []
+      | [printcall] -> [printcall]
+      | printcall :: l' -> printcall :: (call "print_space") :: (addspaces l') 
+    and prints = List.map (fun e ->
       let printcall = match e.expr_typ with
         | Tint -> call "print_int"
         | Tbool -> call "print_bool"
