@@ -61,7 +61,7 @@ let empty_env =
   { exit_label = ""; ofs_this = -1; nb_locals = ref 0; next_local = 0 }
 
 let fun_env f =
-    { empty_env with exit_label = "E_" ^ f.fn_name; nb_locals= ref (List.length f.fn_params)}
+    { empty_env with exit_label = "E_" ^ f.fn_name; nb_locals = ref 0}
 
 let mk_bool d = { expr_desc = d; expr_typ = Tbool }
 
@@ -188,6 +188,7 @@ let rec expr env e =
         | Tstring -> call "print_string"
         | Tptr _ -> call "print_ptr"
         | Tstruct s -> call ("print_struct_"^s.s_name)
+        | Tptrnil -> call "print_nil"
         | _ -> nop
       in expr env e ++ printcall) el in
     List.fold_left (fun c e -> c ++ e) nop ( addspaces prints)
@@ -196,8 +197,10 @@ let rec expr env e =
   
   | TEassign ([lv], [e]) ->
     addr env lv ++
-    movq (reg rdi) (reg rsi) ++
-    expr env e ++ movq (reg rdi) (ind rsi)
+    pushq (reg rdi) ++
+    expr env e ++ 
+    popq rsi ++
+    movq (reg rdi) (ind rsi)
   | TEassign (lvl, [e]) ->
     List.fold_left (fun code lv ->
       code ++
@@ -209,21 +212,27 @@ let rec expr env e =
       
       (List.rev lvl)
   | TEassign (lvl, el) ->
-    List.fold_left2 (fun code lv e ->
+    (List.fold_left (fun code e ->
+      code ++
+      expr env e ++
+      pushq (reg rdi))
+      nop
+      (List.rev el)) ++
+    (List.fold_left (fun code lv ->
       code ++
       addr env lv ++
       movq (reg rdi) (reg rsi) ++
-      expr env e ++
+      popq rdi ++
       movq (reg rdi) (ind rsi))
       nop
-      lvl el
+      lvl)
   | TEblock el ->
     let rec eval env l =
       match l with
       |[] -> nop
       |{expr_desc = TEvars (vl, el)} :: t ->
         let id = ref ((-8) * (!(env.nb_locals) + 1)) in
-        List.iter (fun v -> v.v_addr <- !id ; id := !id-8) vl;
+        List.iter (fun v -> v.v_addr <- !id  ;id := !id-8) vl;
         env.nb_locals := !(env.nb_locals) + (List.length vl);
         (if el = [] then (
           List.fold_left (fun code v ->
@@ -299,12 +308,16 @@ let rec expr env e =
       nop
       el) ++
       call ("F_"^f.fn_name) ++
-      addq (imm (argblock_size + retblock_size)) (reg rsp) ++
+     (match e.expr_typ with
+      | Tmany _ -> 
+        addq (imm (argblock_size + retblock_size)) (reg rsp) ++
       (let code = ref nop in
       for i = 1 to (retblock_size/8) do
         code:= !code ++ pushq (ind ~ofs:(-8 - argblock_size) rsp)
       done;
       !code)
+      | _ -> addq (imm argblock_size) (reg rsp)
+     )
 
   | TEdot (e1, f) ->
     expr env e1 ++
@@ -364,10 +377,10 @@ let function_ f e =
       for i = 1 to (List.length f.fn_typ) do
         code:= !code ++ pushq (ind ~ofs:(-24) rsp)
       done;
-      !code)
+      !code  ++
+      pushq (reg r14))
     else nop) ++
   ret
-
 
 let decl code = function
   | TDfunction (f, e) -> code ++ function_ f e
