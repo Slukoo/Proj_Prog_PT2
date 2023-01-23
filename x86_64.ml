@@ -253,6 +253,21 @@ let jae(z: label) = ins "jae %s" z
 let jb (z: label) = ins "jb %s" z
 let jbe(z: label) = ins "jbe %s" z
 
+let cmove s d = ins "cmove %a, %a" s () d ()
+let cmovz s d = ins "cmovz %a, %a" s () d ()
+let cmovne s d = ins "cmovne %a, %a" s () d ()
+let cmovnz s d = ins "cmovnz %a, %a" s () d ()
+let cmovs s d = ins "cmovs %a, %a" s () d ()
+let cmovns s d = ins "cmovns %a, %a" s () d ()
+let cmovg  s d = ins "cmovg %a, %a" s () d ()
+let cmovge s d = ins "cmovge %a, %a" s () d ()
+let cmovl  s d = ins "cmovl %a, %a" s () d ()
+let cmovle s d = ins "cmovle %a, %a" s () d ()
+let cmova  s d = ins "cmova %a, %a" s () d ()
+let cmovae s d = ins "cmovae %a, %a" s () d ()
+let cmovb  s d = ins "cmovb %a, %a" s () d ()
+let cmovbe s d = ins "cmovbe %a, %a" s () d ()
+
 let cmpb a b = ins "cmpb %a, %a" a () b ()
 let cmpw a b = ins "cmpw %a, %a" a () b ()
 let cmpl a b = ins "cmpl %a, %a" a () b ()

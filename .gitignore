@@ -4,3 +4,6 @@
 *.s
 _build/
 ngoc
+tests/
+sb/
+tst/
