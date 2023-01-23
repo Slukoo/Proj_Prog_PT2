@@ -34,7 +34,7 @@ exception Anomaly of string
 let debug = ref false
 
 let strings = Hashtbl.create 32
-let alloc_string =
+let alloc_string =    (*permet d'ajouter une string à la partie data de notre fichier assembleur*)
   let r = ref 0 in
   fun s ->
     incr r;
@@ -83,7 +83,7 @@ let rec expr env e =
   match e.expr_desc with 
   | TEskip ->
     nop
-  | TEconstant (Cbool true) ->
+  | TEconstant (Cbool true) ->  (* true est représenté par l'entier 1, false par l'entier 0*)
     movq (imm 1) (reg rdi)
   | TEconstant (Cbool false) ->
     movq (imm 0) (reg rdi)
@@ -92,12 +92,12 @@ let rec expr env e =
   | TEnil ->
     xorq (reg rdi) (reg rdi)
   | TEconstant (Cstring s) ->
-    movq (ilab (alloc_string s)) (reg rdi)
+    movq (ilab (alloc_string s)) (reg rdi) 
   | TEbinop (Band, e1, e2) -> 
     let labelend = new_label () in 
       expr env e1 ++
       cmpq (imm 0) (reg rdi) ++
-      je labelend ++
+      je labelend ++    (*évaluation paresseuse du ET*)
       expr env e2 ++
       label labelend
 
@@ -105,7 +105,7 @@ let rec expr env e =
     let labelend = new_label () in 
       expr env e1 ++
       cmpq (imm 1) (reg rdi) ++
-      je labelend ++
+      je labelend ++    (*évaluation paresseuse du OU, vrai est représenté par 1 uniquement, pas par n'importe quelle valeur non nulle*)
       expr env e2 ++
       label labelend
 
@@ -160,7 +160,7 @@ let rec expr env e =
     cmpq (reg rdi) (reg rsi) ++
     movq (imm 0) (reg rdi) ++
     movq (imm 1) (reg rsi) ++
-    c (reg rsi) (reg rdi)
+    c (reg rsi) (reg rdi) (*remplace la valeur par true sous la bonne condition*)
 
   | TEunop (Uneg, e1) ->
     expr env e1 ++
@@ -168,19 +168,19 @@ let rec expr env e =
   | TEunop (Unot, e1) ->
     expr env e1 ++
     cmpq (imm 0) (reg rdi) ++
-    sete (reg dil)
+    sete (reg dil)    (*premet de mettre le bit de poids faible de rdi à 1 si rdi = 0, i.e. si la valeur de e1 est false*)
   | TEunop (Uamp, e1) ->
     addr env e1
   | TEunop (Ustar, e1) ->
     expr env e1 ++
-    movq (ind rdi) (reg rdi)
+    movq (ind rdi) (reg rdi)  (*ind rdi correspond à 0(%rdi) en assembleur*)
   | TEprint el ->
     let rec addspaces l =
       match l with
       | [] -> []
       | [printcall] -> [printcall]
       | printcall :: l' -> printcall :: (call "print_space") :: (addspaces l') 
-    and prints = List.map (fun e ->
+    and prints = List.map (fun e ->         (*on appelle les fonctions print adéquates selon le type des expressions données*)
       let printcall = match e.expr_typ with
         | Tint -> call "print_int"
         | Tbool -> call "print_bool"
@@ -198,54 +198,55 @@ let rec expr env e =
     addr env lv ++
     pushq (reg rdi) ++
     expr env e ++ 
-    popq rsi ++
+    popq rsi ++   (*l'addresse de lv se trouve dans rsi, la valeur de e dans rdi*)
     movq (reg rdi) (ind rsi)
   | TEassign (lvl, [e]) ->
     List.fold_left (fun code lv ->
       code ++
       addr env lv ++
-      movq (reg r13) (ind rdi)) 
+      movq (reg r13) (ind rdi) (*on place la valeur sauvegardée à chaque addresse des lv*)
+      ) 
       
       (expr env e ++
-      movq (reg rdi) (reg r13)) 
+      movq (reg rdi) (reg r13)) (*on sauvegarde la valeur de e dans un registre qu'on utilise spécifiquement pour ce cas de figure*)
       
       (List.rev lvl)
   | TEassign (lvl, el) ->
     (List.fold_left (fun code e ->
       code ++
       expr env e ++
-      pushq (reg rdi))
+      pushq (reg rdi))    (*on push d'abord toutes les valeurs des expressions de droite*)
       nop
-      (List.rev el)) ++
+      (List.rev el)) ++ (*dans le sens inverse car on va dépiler la dernière valeur empilée en premier*)
     (List.fold_left (fun code lv ->
       code ++
       addr env lv ++
       movq (reg rdi) (reg rsi) ++
       popq rdi ++
-      movq (reg rdi) (ind rsi))
+      movq (reg rdi) (ind rsi))   (*on dépile les valeurs puis on les place aux addresses des variables correspondantes*)
       nop
       lvl)
   | TEblock el ->
     let rec eval env l =
       match l with
       |[] -> nop
-      |{expr_desc = TEvars (vl, el)} :: t ->
-        let id = ref ((-8) * (!(env.nb_locals) + 1)) in
-        List.iter (fun v -> v.v_addr <- !id  ;id := !id-8) vl;
+      |{expr_desc = TEvars (vl, el)} :: t ->      (*si une instruction dans un bloc est une déclaration de variable*)
+        let id = ref ((-8) * (!(env.nb_locals) + 1)) in   
+        List.iter (fun v -> v.v_addr <- !id  ;id := !id-8) vl;  (*on assigne à chaque variable une addresse, correspondant à sa position dans la pile, donc position relative à rbp (qui reste fixe dans un même bloc)*)
         env.nb_locals := !(env.nb_locals) + (List.length vl);
         (if el = [] then (
           List.fold_left (fun code v ->
             code ++
-            xorq (reg rdi) (reg rdi) ++
+            xorq (reg rdi) (reg rdi) ++   (*dans le cas où aucune valeur d'initialisation est donnée, on met la valeur à 0 par défaut*)
             pushq (reg rdi))
             nop
             vl)
         else (List.fold_left (fun code e ->
           code ++
-          expr env e ++
+          expr env e ++     (*sinon on empile les valeurs des expressions données*)
           (match e.expr_typ with
-          | Tmany _ -> nop
-          | _ -> pushq (reg rdi)
+          | Tmany _ -> nop    (*dans le cas où l'expression est un appel de fonction, les valeurs sont déjà empilées à la fin de l'évaluation*)
+          | _ -> pushq (reg rdi)  
           ))
           nop
           el) ++
@@ -285,12 +286,7 @@ let rec expr env e =
     call "allocz" ++
     (match ty with
         | Tstruct s ->
-            pushq (reg rax) ++
-            movq (imm 8) (reg rdi) ++
-            call "allocz" ++
-            popq rdi ++
-            movq (reg rdi) (ind rax) ++
-            movq (reg rax) (reg rdi)
+          assert false
         | _ ->
             movq (reg rax) (reg rdi))
     
@@ -303,19 +299,19 @@ let rec expr env e =
       expr env e ++
       (match e.expr_typ with
         | Tmany _ -> nop
-        | _ -> pushq (reg rdi)))
+        | _ -> pushq (reg rdi)))    (*on place chaque argument de la fonction sur la pile avant d'appeler la fonction*)
       nop
       el) ++
-      call ("F_"^f.fn_name) ++
+      call ("F_"^f.fn_name) ++    (*voir plus bas comment sont faites les fonctions*)
      (match e.expr_typ with
       | Tmany _ -> 
-        addq (imm (argblock_size + retblock_size)) (reg rsp) ++
+        addq (imm (argblock_size + retblock_size)) (reg rsp) ++     (*après l'appel d'une fonction, on ramène le pointeur de la tête de pile avant là où se trouvent les arguments et les valeurs de retour*)
       (let code = ref nop in
       for i = 1 to (retblock_size/8) do
-        code:= !code ++ pushq (ind ~ofs:(-8 - argblock_size) rsp)
+        code:= !code ++ pushq (ind ~ofs:(-8 - argblock_size) rsp)   (*puis on copie les valeurs de retour sur le dessus de la pile, pour qu'elle puissent être dépilées par l'appelant*)
       done;
       !code)
-      | _ -> addq (imm argblock_size) (reg rsp)
+      | _ -> addq (imm argblock_size) (reg rsp) (*dans le cas où on n'a qu'une valeur de retour, puisque cette valeur est mise dans rdi, on a juste à remettre rsp à la bonne place*)
      )
 
   | TEdot (e1, f) ->
@@ -329,13 +325,13 @@ let rec expr env e =
   | TEreturn [] ->
     jmp env.exit_label
   | TEreturn [e1] ->
-    expr env e1 ++
+    expr env e1 ++    (*dans le cas d'une seule valeur de retour, on la stocke dans rdi*)
     jmp env.exit_label
   | TEreturn el ->
      List.fold_left (fun code e ->
       code ++
       expr env e ++
-      pushq (reg rdi))
+      pushq (reg rdi))  (*sinon on les empile toutes*)
       nop
       el
   | TEincdec (e1, op) ->
@@ -345,7 +341,7 @@ let rec expr env e =
     |Dec -> decq (ind rdi))
 
 
-and addr env e = 
+and addr env e =      (*renvoie l'addresse d'une l-value e*)
   (match e.expr_desc with
   | TEunop (Ustar, e) ->
     expr env e
@@ -365,19 +361,19 @@ let function_ f e =
   and env = fun_env f in 
   label ("F_" ^ s) ++ 
   pushq (reg rbp) ++
-  movq (reg rsp) (reg rbp) ++
+  movq (reg rsp) (reg rbp) ++     (*on ramène rbp à rsp, pour oublier les variables de l'appelant, et on garde l'ancien rbp sur le nouveau rbp, pour pouvoir récupérer les variables une fois l'appel terminé*)
   expr env e ++
   label env.exit_label ++
-  movq (reg rbp) (reg rsp)++
-  popq rbp ++
-  (if List.length f.fn_typ > 1 then
-    popq r14 ++
+  movq (reg rbp) (reg rsp)++  (*à la fin de l'appel, on oublie toutes les variables locales de la fonction en ramenant rsp à rbp,*)
+  popq rbp ++                 (*puis on ramène rbp à son ancienne position*)
+  (if List.length f.fn_typ > 1 then   
+    popq r14 ++               (*si on a plusieurs valeurs de retour, on stocke l'adresse de retour dans un registre prévu spécifiquement pour cela*)
     (let code = ref nop in
       for i = 1 to (List.length f.fn_typ) do
-        code:= !code ++ pushq (ind ~ofs:(-24) rsp)
+        code:= !code ++ pushq (ind ~ofs:(-24) rsp) (*on ramène les valeurs de retour sur le dessus de la pile*)
       done;
       !code  ++
-      pushq (reg r14))
+      pushq (reg r14)) (*on remet l'addresse de retour sur le dessus de la pile avant de ret*)
     else nop) ++
   ret
 
